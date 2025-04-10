@@ -25,7 +25,7 @@ async def chat_with_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Загружаем последние 10 пар сообщений
     messages = get_last_messages(user_id, limit=10)
-    print(f'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  {messages}')
+    # print(f'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  {messages}')
     # Добавляем system-промпт в начало
     messages.insert(0, {
         "role": "system",
