@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Виртуальные окружения
+venv/
+env/
+
+# Секреты и токены
+.env
+
+# VS Code, PyCharm и системные файлы
+.vscode/
+.idea/
+.DS_Store
