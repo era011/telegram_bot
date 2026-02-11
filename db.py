@@ -1,48 +1,7 @@
-# import sqlite3
-# from datetime import datetime
-
-# DB_FILE = "chat_history.db"
-
-# def init_db():
-#     with sqlite3.connect(DB_FILE) as conn:
-#         cursor = conn.cursor()
-#         cursor.execute('''
-#             CREATE TABLE IF NOT EXISTS messages (
-#                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-#                 user_id INTEGER,
-#                 role TEXT,
-#                 content TEXT,
-#                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-#             )
-#         ''')
-#         conn.commit()
-
-# def save_message(user_id, role, content):
-#     with sqlite3.connect(DB_FILE) as conn:
-#         cursor = conn.cursor()
-#         cursor.execute('''
-#             INSERT INTO messages (user_id, role, content)
-#             VALUES (?, ?, ?)
-#         ''', (user_id, role, content))
-#         conn.commit()
-#         print(f'  {user_id} {role} {content} saved')
-
-# def get_last_messages(user_id, limit=10):
-#     with sqlite3.connect(DB_FILE) as conn:
-#         cursor = conn.cursor()
-#         cursor.execute('''
-#             SELECT role, content FROM messages
-#             WHERE user_id = ?
-#             ORDER BY timestamp DESC
-#             LIMIT ?
-#         ''', (user_id, limit * 2))  # *2 потому что и user, и assistant
-#         rows = cursor.fetchall()
-#         # Обратный порядок для GPT
-#         return list(reversed([{"role": r[0], "content": r[1]} for r in rows]))
-
 import psycopg2
 import os
 from dotenv import load_dotenv
+from datetime import datetime, date, time
 
 load_dotenv()
 DB_URL = os.getenv("DATABASE_URL")
@@ -89,3 +48,31 @@ def clear_history(user_id):
         with conn.cursor() as cur:
             cur.execute('DELETE FROM messages WHERE user_id = %s', (user_id,))
             conn.commit()
+
+
+def add_question_to_db(dpt: str, question: str, chunk: str):
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS questions (
+                        id SERIAL PRIMARY KEY,
+                        department TEXT,
+                        question TEXT,
+                        chunk TEXT,
+                        date DATE,
+                        time TIME,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )""")
+                cur.execute("""
+                    INSERT INTO questions (department, question, chunk, date, time)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """, (dpt, question, chunk, date.today(), datetime.now().time()))
+                conn.commit()
+    except Exception as e:
+        print("ошибка при записи:", e)
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
