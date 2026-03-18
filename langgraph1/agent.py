@@ -11,7 +11,7 @@ from connections.wv_client import get_weaviate_client
 from langgraph1.prompts import SYSTEM_PROMPT
 
 llm = ChatOpenAI(
-    model="gpt-4.1",
+    model="gpt-5.2",
     streaming=True,
     api_key=os.getenv("OPENAI_API_KEY"),
 )
