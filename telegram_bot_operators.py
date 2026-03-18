@@ -7,6 +7,9 @@ from db import init_db, save_message, get_last_messages
 from langgraph1.agent import graph  # <-- ПРОВЕРЬ ПУТЬ: где лежит graph = builder.compile()
 from telegram.constants import ChatAction
 import asyncio
+from telegram.constants import ParseMode
+import re
+
 
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -46,45 +49,36 @@ async def typing_indicator(bot, chat_id, stop_event: asyncio.Event):
         pass
 
 
-# async def chat_with_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
-#     user_id = update.effective_user.id
-#     user_message = (update.message.text or "").strip()
-#     if not user_message:
-#         await update.message.reply_text("Напиши вопрос текстом 🙂")
-#         return
-#     save_message(user_id, "user", user_message)
 
-#     # 2) берём историю
-#     history = get_last_messages(user_id, limit=15)
-#     history_msgs = _to_langgraph_messages(history)
+def clean_html_for_telegram(text: str) -> str:
+    if not text:
+        return text
 
-#     # 3) прогоняем через LangGraph (он сам вызовет rag tool)
-#     try:
-#         state_in = {"messages": history_msgs}
-#         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-#         state_out = await graph.ainvoke(state_in)  # <-- ключевое
+    # заменяем списки на нормальные bullets
+    text = re.sub(r"<li>\s*", "• ", text)
+    text = re.sub(r"</li>", "\n", text)
 
-#         msgs_out = state_out.get("messages", [])
-#         if not msgs_out:
-#             reply_text = "Не смог сформировать ответ."
-#         else:
-#             last = msgs_out[-1]
+    # убираем ul/ol теги
+    text = re.sub(r"</?ul>", "", text)
+    text = re.sub(r"</?ol>", "", text)
 
-#             # last может быть dict или LangChain Message
-#             if isinstance(last, dict):
-#                 reply_text = last.get("content", "") or "Пустой ответ."
-#             else:
-#                 reply_text = getattr(last, "content", "") or "Пустой ответ."
+    # убираем лишние переносы
+    text = re.sub(r"\n+", "\n", text)
+
+    return text.strip()
 
 
-#         save_message(user_id, "assistant", reply_text)
 
-#         # 5) отправляем пользователю
-#         await update.message.reply_text(reply_text)
+async def safe_send(update, text):
+    text = clean_html_for_telegram(text)
 
-#     except Exception as e:
-#         logging.exception("Graph error")
-#         await update.message.reply_text("Произошла ошибка при обработке запроса.")
+    try:
+        await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+    except Exception as e:
+        logging.error(f"HTML parse error: {e}")
+        await update.message.reply_text(text)
+        
+        
 
 import asyncio
 from telegram.constants import ChatAction
@@ -113,7 +107,7 @@ async def chat_with_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
             last = msgs_out[-1]
             reply_text = getattr(last, "content", "") if not isinstance(last, dict) else last.get("content", "")
         save_message(user_id, "assistant", reply_text)
-        await update.message.reply_text(reply_text)
+        await safe_send(update, reply_text)
     except Exception:
         logging.exception("Graph error")
         await update.message.reply_text("Произошла ошибка при обработке запроса.")
